@@ -74,4 +74,18 @@
     KING BARBER IRAQ © 2026
   </footer>
 </body>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+const SUPABASE_URL = "https://gtnmfjvfxhpglguypmg.supabase.co";
+const SUPABASE_KEY = "sb_publishable_fzsDhI44YOtOAulKitE5pQ_n7BsjS6y";
+
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+
+console.log("KING BARBER IRAQ: Supabase connected");
+</script>
 </html>
