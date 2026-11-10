@@ -1,1 +1,215 @@
 
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KING BARBER IRAQ - ADMIN</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101010;color:#fff;font-family:Arial,sans-serif;padding:20px}
+header{background:#191919;border:1px solid #bd963f;padding:22px;border-radius:14px;text-align:center}
+h1{color:#d6ad52;font-size:23px}
+.card{background:#1d1d1d;border:1px solid #383838;padding:18px;border-radius:12px;margin-top:18px}
+input,textarea,select{width:100%;padding:13px;margin:8px 0;background:#292929;color:white;border:1px solid #555;border-radius:7px}
+button{background:#c69b42;color:#111;border:0;padding:13px 20px;border-radius:7px;font-weight:bold;margin:5px;cursor:pointer}
+button.danger{background:#a83232;color:white}
+.item{background:#292929;padding:13px;margin:10px 0;border-radius:8px}
+.muted{color:#aaa;font-size:13px}
+#dashboard{display:none}
+#message{color:#e4bd69;margin:12px 0}
+</style>
+</head>
+<body>
+
+<header>
+<h1> KING BARBER IRAQ </h1>
+<p>لوحة تحكم المدير</p>
+</header>
+
+<div class="card" id="login">
+<h2>تسجيل دخول المدير</h2>
+<input id="email" type="email" placeholder="البريد الإلكتروني">
+<input id="password" type="password" placeholder="كلمة المرور">
+<button onclick="loginAdmin()">دخول</button>
+<div id="message"></div>
+</div>
+
+<div id="dashboard">
+<div class="card">
+<h2>مرحباً بك في لوحة الإدارة</h2>
+<button onclick="loadCompetitions()">تحديث البيانات</button>
+<button onclick="logout()" class="danger">تسجيل الخروج</button>
+</div>
+
+<div class="card">
+<h2>إضافة مسابقة جديدة</h2>
+<input id="title" placeholder="اسم المسابقة">
+<textarea id="description" placeholder="وصف المسابقة"></textarea>
+<select id="status">
+<option value="draft">مسودة</option>
+<option value="published">منشورة</option>
+<option value="closed">مغلقة</option>
+</select>
+<button onclick="addCompetition()">إضافة المسابقة</button>
+</div>
+
+<div class="card">
+<h2>المسابقات الحالية</h2>
+<div id="competitions">جارٍ تحميل البيانات...</div>
+</div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://gtnmfjvfxhpglguypmg.supabase.co";
+const SUPABASE_KEY = "sb_publishable_fzsDhI44YOtOAulKitE5pQ_n7BsjS6y";
+
+const db = window.supabase.createClient(
+SUPABASE_URL,
+SUPABASE_KEY
+);
+
+function message(t){
+document.getElementById("message").textContent=t;
+}
+
+async function loginAdmin(){
+const email=document.getElementById("email").value.trim();
+const password=document.getElementById("password").value;
+
+message("جارٍ تسجيل الدخول...");
+
+const {data,error}=await db.auth.signInWithPassword({
+email,password
+});
+
+if(error){
+message("خطأ: "+error.message);
+return;
+}
+
+const {data:profile,error:profileError}=await db
+.from("profiles")
+.select("role")
+.eq("id",data.user.id)
+.single();
+
+if(profileError || profile?.role!=="admin"){
+await db.auth.signOut();
+message("هذا الحساب ليس مديراً مخولاً.");
+return;
+}
+
+document.getElementById("login").style.display="none";
+document.getElementById("dashboard").style.display="block";
+loadCompetitions();
+}
+
+async function loadCompetitions(){
+const box=document.getElementById("competitions");
+box.textContent="جارٍ التحميل...";
+
+const {data,error}=await db
+.from("competitions")
+.select("*")
+.order("title");
+
+if(error){
+box.textContent="تعذر تحميل المسابقات: "+error.message;
+return;
+}
+
+box.innerHTML="";
+
+if(!data.length){
+box.textContent="لا توجد مسابقات حالياً.";
+return;
+}
+
+data.forEach(c=>{
+const item=document.createElement("div");
+item.className="item";
+
+const heading=document.createElement("h3");
+heading.textContent=c.title;
+
+const desc=document.createElement("p");
+desc.textContent=c.description || "";
+
+const state=document.createElement("p");
+state.className="muted";
+state.textContent="الحالة: "+c.status;
+
+const del=document.createElement("button");
+del.className="danger";
+del.textContent="حذف المسابقة";
+del.onclick=()=>deleteCompetition(c.id);
+
+item.append(heading,desc,state,del);
+box.appendChild(item);
+});
+}
+
+async function addCompetition(){
+const title=document.getElementById("title").value.trim();
+const description=document.getElementById("description").value.trim();
+const status=document.getElementById("status").value;
+
+if(!title){
+alert("اكتب اسم المسابقة");
+return;
+}
+
+const {error}=await db.from("competitions").insert({
+title,description,status
+});
+
+if(error){
+alert("حدث خطأ: "+error.message);
+return;
+}
+
+alert("تمت إضافة المسابقة");
+document.getElementById("title").value="";
+document.getElementById("description").value="";
+loadCompetitions();
+}
+
+async function deleteCompetition(id){
+if(!confirm("هل تريد حذف هذه المسابقة؟"))return;
+
+const {error}=await db.from("competitions").delete().eq("id",id);
+
+if(error){
+alert(error.message);
+return;
+}
+
+loadCompetitions();
+}
+
+async function logout(){
+await db.auth.signOut();
+location.reload();
+}
+
+db.auth.getSession().then(async ({data})=>{
+if(data.session){
+const {data:profile}=await db
+.from("profiles")
+.select("role")
+.eq("id",data.session.user.id)
+.single();
+
+if(profile?.role==="admin"){
+document.getElementById("login").style.display="none";
+document.getElementById("dashboard").style.display="block";
+loadCompetitions();
+}
+}
+});
+</script>
+</body>
+</html>
+
